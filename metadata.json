@@ -1,0 +1,6 @@
+{
+  "name": "KairosMix",
+  "description": "E-commerce de tienda única para mezclas personalizadas de frutos secos y snacks saludables con RBAC, gestión de inventario, cálculo nutricional y checkout transaccional.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

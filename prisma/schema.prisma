@@ -1,0 +1,200 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Usuario {
+  id            String         @id @default(uuid())
+  email         String         @unique
+  passwordHash  String
+  nombre        String
+  rol           Rol
+  activo        Boolean        @default(true)
+  creadoEn      DateTime       @default(now())
+  refreshTokens RefreshToken[]
+}
+
+enum Rol {
+  ADMIN
+  VENDEDOR
+  CLIENTE
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  usuarioId String
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiraEn  DateTime
+  creadoEn  DateTime @default(now())
+}
+
+model Ingrediente {
+  id                 Int                   @id @default(autoincrement())
+  nombre             String                @unique
+  categoria          CategoriaIngrediente
+  fdcId              Int?                  // id en USDA FoodData Central
+  caloriasPor100g    Float
+  proteinasG100g     Float
+  grasasG100g        Float
+  carbohidratosG100g Float
+  fibraG100g         Float                 @default(0)
+  azucaresG100g      Float                 @default(0)
+  sodioMg100g        Float                 @default(0)
+  origen             OrigenIngrediente
+  esProcesado        Boolean               @default(false)
+  precioPorGramo     Float?
+  activo             Boolean               @default(true)
+  alergenos          IngredienteAlergeno[]
+  stock              Stock?
+  mezclas            MezclaIngrediente[]
+}
+
+enum CategoriaIngrediente {
+  FRUTO_SECO
+  SEMILLA
+  FRUTA_DESHIDRATADA
+  CEREAL
+  PROTEINA_POLVO
+  EDULCORANTE
+  ESPECIA
+  OTRO
+}
+
+enum OrigenIngrediente {
+  ANIMAL
+  VEGETAL
+}
+
+model Alergeno {
+  id          Int                   @id @default(autoincrement())
+  nombre      String                @unique
+  ingredientes IngredienteAlergeno[]
+}
+
+model IngredienteAlergeno {
+  ingredienteId Int
+  alergenoId    Int
+  nivel         NivelAlergeno @default(CONTIENE)
+  ingrediente   Ingrediente   @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
+  alergeno      Alergeno      @relation(fields: [alergenoId], references: [id], onDelete: Cascade)
+
+  @@id([ingredienteId, alergenoId])
+}
+
+enum NivelAlergeno {
+  CONTIENE
+  TRAZAS
+}
+
+model Proveedor {
+  id       Int     @id @default(autoincrement())
+  nombre   String
+  ruc      String  @unique
+  contacto String?
+  activo   Boolean @default(true)
+}
+
+model Stock {
+  ingredienteId     Int         @id
+  gramosDisponibles Float       @default(0)
+  actualizadoEn     DateTime    @updatedAt
+  ingrediente       Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
+}
+
+model EventoAuditoria {
+  id        String          @id @default(uuid())
+  timestamp DateTime        @default(now())
+  usuarioId String?
+  accion    String
+  entidad   String
+  entidadId String
+  payload   Json
+  resultado ResultadoEvento
+}
+
+enum ResultadoEvento {
+  EXITO
+  FALLO
+}
+
+model Pedido {
+  id        String       @id @default(uuid())
+  clienteId String
+  estado    EstadoPedido @default(PENDIENTE)
+  total     Float
+  creadoEn  DateTime     @default(now())
+  items     PedidoItem[]
+  factura   Factura?
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  STOCK_RESERVADO
+  PAGADO
+  CONFIRMADO
+  FALLIDO
+  CANCELADO
+}
+
+model PedidoItem {
+  id             String      @id @default(uuid())
+  pedidoId       String
+  ingredienteId  Int
+  gramos         Float
+  precioUnitario Float
+  pedido         Pedido      @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+}
+
+model Factura {
+  id         String     @id @default(uuid())
+  pedidoId   String     @unique
+  monto      Float
+  metodoPago String
+  estadoPago EstadoPago @default(PENDIENTE)
+  emitidaEn  DateTime   @default(now())
+  pedido     Pedido     @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+}
+
+enum EstadoPago {
+  PENDIENTE
+  PAGADO
+  FALLIDO
+  REEMBOLSADO
+}
+
+model NotificacionLog {
+  id           String   @id @default(uuid())
+  tipo         String   // "pedido_confirmado" | "pedido_fallido"
+  destinatario String
+  enviadaEn    DateTime @default(now())
+  exito        Boolean
+}
+
+model Mezcla {
+  id                   String              @id @default(uuid())
+  usuarioId            String
+  creadoEn             DateTime            @default(now())
+  parametrosEntrada    Json
+  justificacionLlm     String?
+  caloriasTotales      Float?
+  proteinasTotales     Float?
+  grasasTotales        Float?
+  carbohidratosTotales Float?
+  estado               String              @default("generada") // generada | ajustada | fallida
+  items                MezclaIngrediente[]
+}
+
+model MezclaIngrediente {
+  mezclaId      String
+  ingredienteId Int
+  gramos        Float
+  mezcla        Mezcla      @relation(fields: [mezclaId], references: [id], onDelete: Cascade)
+  ingrediente   Ingrediente @relation(fields: [ingredienteId], references: [id], onDelete: Cascade)
+
+  @@id([mezclaId, ingredienteId])
+}
